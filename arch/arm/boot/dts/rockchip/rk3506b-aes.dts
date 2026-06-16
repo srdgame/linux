@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Board device tree for the AES RK3506B board (RK3506B SoC, arm32 Cortex-A7).
+ * Mainline bring-up: minimal board for earlycon/console on uart0.
+ */
+
+/dts-v1/;
+
+#include "rk3506.dtsi"
+
+/ {
+	model = "AES RK3506B Board";
+	compatible = "aes,rk3506b-aes", "rockchip,rk3506b", "rockchip,rk3506";
+
+	chosen {
+		stdout-path = "serial0:1500000n8";
+		/* Mount the NAND rootfs (UBI volume "rootfs" on mtd5 — the 6th fixed
+		 * partition in the SFC node below) as root; rootwait lets UBI attach
+		 * first. `rw` mounts it read-write so writes persist (without it the
+		 * kernel mounts the initial root read-only). Harmless for the
+		 * initramfs-shell boot variant: if the boot FIT also bundles an
+		 * initramfs with /init, the kernel runs that /init and ignores root=. */
+		bootargs = "earlycon=uart8250,mmio32,0xff0a0000 console=ttyS0,1500000 ubi.mtd=5 root=ubi0:rootfs rootfstype=ubifs rootwait rw";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x20000000>;	/* 512 MiB; DRAM base 0x0 (CFG_SYS_SDRAM_BASE=0) */
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/*
+ * SPI-NAND (Winbond W25N04KV, 4Gb) on the SFC. Lets Linux see the NAND as MTD
+ * + attach UBI for persistent rootfs (see notes/10). Partition layout mirrors
+ * third_party/bringup/parameter-nand-aes.txt (512B-sector units → bytes, 128KB
+ * erase-block aligned); the 0x0–0x400000 (0–4MB) loader/idblock area is left
+ * unpartitioned. 50 MHz + DLL. Reads are reliable (230-cell window; ro reboot
+ * loop clean). RW writes corrupted the page at ALL speeds (24/50/80 MHz) —
+ * root cause was the SFC TX-FIFO level mask being 5-bit instead of RK3506's
+ * 6-bit (GENMASK(13,8)), so write_fifo miscomputed free slots. Fixed in the
+ * driver; this DT is back to the target 50 MHz.
+ */
+&sfc {
+	status = "okay";
+
+	flash@0 {
+		compatible = "spi-nand";	/* W25N04KV; mainline winbond.c id (0xaa,0x23) */
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <1>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@400000 {
+				label = "uboot";
+				reg = <0x400000 0x400000>;
+			};
+			partition@800000 {
+				label = "misc";
+				reg = <0x800000 0x100000>;
+			};
+			partition@900000 {
+				label = "vnvm";
+				reg = <0x900000 0x40000>;
+			};
+			partition@940000 {
+				label = "recovery";
+				reg = <0x940000 0xe00000>;
+			};
+			partition@1740000 {
+				label = "boot";
+				reg = <0x1740000 0x1000000>;
+			};
+			partition@2740000 {
+				label = "rootfs";
+				reg = <0x2740000 0xae00000>;
+			};
+			partition@d540000 {
+				label = "userdata";
+				reg = <0xd540000 0x12ac0000>;
+			};
+		};
+	};
+};
