@@ -50,7 +50,10 @@
 	flash@0 {
 		compatible = "spi-nand";	/* W25N04KV; mainline winbond.c id (0xaa,0x23) */
 		reg = <0>;
-		spi-max-frequency = <50000000>;
+		spi-max-frequency = <80000000>;	/* vendor EVB speed (rk3506-evb2-v10). ATK ships at 50M.
+						 * 100M unusable: clk_set_rate(100M) lands on 98M PLL tap, DLL finds no window.
+						 * 80M -> 75M PLL tap, DLL ok (cell 130, window [90,170]).
+						 * Loader weak write on rootfs PEB3/4 is covered by ubiprog first-boot rewrite. */
 		spi-rx-bus-width = <4>;
 		spi-tx-bus-width = <1>;
 
