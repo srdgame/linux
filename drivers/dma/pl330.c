@@ -2144,19 +2144,48 @@ static struct dma_chan *of_dma_pl330_xlate(struct of_phandle_args *dma_spec,
 {
 	int count = dma_spec->args_count;
 	struct pl330_dmac *pl330 = ofdma->of_dma_data;
+	struct dma_chan *chan;
 	unsigned int chan_id;
 
 	if (!pl330)
 		return NULL;
 
-	if (count != 1)
+	if (count < 1)
 		return NULL;
 
 	chan_id = dma_spec->args[0];
 	if (chan_id >= pl330->num_peripherals)
 		return NULL;
 
-	return dma_get_slave_channel(&pl330->peripherals[chan_id].chan);
+	chan = dma_get_slave_channel(&pl330->peripherals[chan_id].chan);
+
+	/*
+	 * RK3506 routes peripheral DMA requests through a GRF crossbar mux. The
+	 * vendor DT encodes it as extra dmas cells:
+	 *   <dmac chan  mux_reg0 mux_val0 mux_reg1 mux_val1>
+	 * Program whichever mux reg/val pairs are present so the request line
+	 * reaches the channel. Other SoCs keep the single-cell form (count == 1)
+	 * and skip this.
+	 */
+	if (chan && count == 5) {
+		int i;
+
+		for (i = 0; i < 2; i++) {
+			u32 reg = dma_spec->args[1 + i * 2];
+			u32 val = dma_spec->args[2 + i * 2];
+			void __iomem *r;
+
+			if (!reg)
+				continue;
+			r = ioremap(reg, 0x4);
+			if (r) {
+				writel(val, r);
+				iounmap(r);
+			}
+		}
+	}
+
+	return chan;
 }
 
 static int pl330_alloc_chan_resources(struct dma_chan *chan)
