@@ -65,6 +65,80 @@
 };
 
 /*
+ * MMC/SD (dw_mmc) — the SD card slot (ATK reference: rk3506b-alientek.dtsi).
+ * Mainline dw_mmc-rockchip probes via the rk3288-dw-mshc fallback compatible.
+ * Supplies are always-on fixed 3.3V rails (forge has no PMIC); card-detect on
+ * GPIO0_PA2.
+ */
+&mmc {
+	bus-width = <4>;
+	cap-sd-highspeed;
+	no-1-8-v;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc_clk_pins &sdmmc_cmd_pins &sdmmc_bus4_pins &sdmmc_det>;
+
+	cd-gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&vcc3v3_sd>;
+	vqmmc-supply = <&vccio_sd>;
+	status = "okay";
+};
+
+/*
+ * SPI0 — userspace spidev on CS0/CS1 (ATK reference: rk3506b-alientek.dtsi).
+ * Mainline spi-rockchip probes via the rk3066-spi fallback. PIO (no DMA — the
+ * vendor 5-cell DMA encoding doesn't bind mainline pl330). spidev children use
+ * the whitelisted "rohm,dh2228fv" binding (mainline rejects "rockchip,spidev").
+ */
+&spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_csn0_pins &spi0_csn1_pins &spi0_clk_pins>;
+
+	spidev@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+	};
+
+	spidev@1 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <50000000>;
+		reg = <1>;
+	};
+};
+
+&pinctrl {
+	sdmmc {
+		/omit-if-no-ref/
+		sdmmc_det: sdmmc-det {
+			rockchip,pins =
+				/* sdmmc_det */ <0 RK_PA2 1 &pcfg_pull_up>;
+		};
+	};
+};
+
+/ {
+	vcc3v3_sd: vcc3v3-sd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_sd";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	vccio_sd: vccio-sd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vccio_sd";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+};
+
+/*
  * SPI-NAND (Winbond W25N04KV, 4Gb) on the SFC. Lets Linux see the NAND as MTD
  * + attach UBI for persistent rootfs (see notes/10). Partition layout mirrors
  * third_party/bringup/parameter-nand-aes.txt (512B-sector units → bytes, 128KB

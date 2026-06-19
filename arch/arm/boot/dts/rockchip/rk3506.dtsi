@@ -124,6 +124,34 @@
 		status = "disabled";
 	};
 
+	spi0: spi@ff120000 {
+		compatible = "rockchip,rk3506-spi", "rockchip,rk3066-spi";
+		reg = <0xff120000 0x1000>;
+		interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&cru CLK_SPI0>, <&cru PCLK_SPI0>;
+		clock-names = "spiclk", "apb_pclk";
+		num-cs = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&spi0_csn0_pins &spi0_csn1_pins &spi0_clk_pins>;
+		status = "disabled";
+	};
+
+	mmc: mmc@ff480000 {
+		compatible = "rockchip,rk3506-dw-mshc", "rockchip,rk3288-dw-mshc";
+		reg = <0xff480000 0x4000>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+		max-frequency = <150000000>;
+		bus-width = <4>;
+		clocks = <&cru HCLK_SDMMC>, <&cru CCLK_SRC_SDMMC>;
+		clock-names = "biu", "ciu";
+		fifo-depth = <0x100>;
+		resets = <&cru SRST_H_SDMMC>;
+		reset-names = "reset";
+		status = "disabled";
+	};
+
 	sfc: spi@ff488000 {
 		compatible = "rockchip,rk3506-fspi", "rockchip,sfc";
 		reg = <0xff488000 0x4000>;
@@ -263,6 +291,11 @@
 			bias-disable;
 		};
 
+		pcfg_pull_none_drv_level_3: pcfg-pull-none-drv-level-3 {
+			bias-disable;
+			drive-strength = <3>;
+		};
+
 		gpio0: gpio@ff940000 {
 			compatible = "rockchip,gpio-bank";
 			reg = <0xff940000 0x200>;
@@ -380,6 +413,51 @@
 			eth_rmii1_clk_pins: eth-rmii1-clk-pins {
 				rockchip,pins =
 					/* eth_rmii1_clk */ <3 RK_PB0 2 &pcfg_pull_none>;
+			};
+		};
+
+		sdmmc {
+			/omit-if-no-ref/
+			sdmmc_bus4_pins: sdmmc-bus4-pins {
+				rockchip,pins =
+					/* sdmmc_d0 */ <3 RK_PA2 1 &pcfg_pull_up>,
+					/* sdmmc_d1 */ <3 RK_PA3 1 &pcfg_pull_up>,
+					/* sdmmc_d2 */ <3 RK_PA4 1 &pcfg_pull_up>,
+					/* sdmmc_d3 */ <3 RK_PA5 1 &pcfg_pull_up>;
+			};
+
+			/omit-if-no-ref/
+			sdmmc_clk_pins: sdmmc-clk-pins {
+				rockchip,pins =
+					/* sdmmc_clk */ <3 RK_PA0 1 &pcfg_pull_none>;
+			};
+
+			/omit-if-no-ref/
+			sdmmc_cmd_pins: sdmmc-cmd-pins {
+				rockchip,pins =
+					/* sdmmc_cmd */ <3 RK_PA1 1 &pcfg_pull_up>;
+			};
+		};
+
+		spi0 {
+			/omit-if-no-ref/
+			spi0_clk_pins: spi0-clk-pins {
+				rockchip,pins =
+					/* spi0_clk */ <0 RK_PC0 2 &pcfg_pull_none_drv_level_3>,
+					/* spi0_miso */ <0 RK_PC2 2 &pcfg_pull_none_drv_level_3>,
+					/* spi0_mosi */ <0 RK_PC1 2 &pcfg_pull_none_drv_level_3>;
+			};
+
+			/omit-if-no-ref/
+			spi0_csn0_pins: spi0-csn0-pins {
+				rockchip,pins =
+					/* spi0_csn0 */ <0 RK_PC3 2 &pcfg_pull_none_drv_level_3>;
+			};
+
+			/omit-if-no-ref/
+			spi0_csn1_pins: spi0-csn1-pins {
+				rockchip,pins =
+					/* spi0_csn1 */ <0 RK_PB7 2 &pcfg_pull_none_drv_level_3>;
 			};
 		};
 	};
