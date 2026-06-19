@@ -784,6 +784,33 @@ static int rockchip_sfc_exec_mem_op(struct spi_mem *mem, const struct spi_mem_op
 			sfc->speed[cs], rockchip_sfc_clk_get_rate(sfc));
 	}
 
+	/*
+	 * Production write-reliability gate: never program a new op into an SFC
+	 * that isn't demonstrably idle + error-clear. A controller left BUSY
+	 * (a prior op timed out / errored / its FIFO not drained) rejects the
+	 * next posted SFC_CMD/SFC_CTRL write; the interconnect delivers that
+	 * rejection as an async SLVERR → imprecise external abort (0xc06) on a
+	 * later CPU store, and the half-programmed NAND page then reads back
+	 * ECC-uncorrectable — the root cause of the RW bit-flip / 0xFF-fill
+	 * saga. Vendor's private rkflash/sfc.c gates every op this way
+	 * (sfc_request() → sfc_reset() when !TXEMPTY || !RXEMPTY || BUSY);
+	 * mainline omits it. Clear sticky error status first, then reset if the
+	 * controller/FIFO isn't clean.
+	 */
+	writel_relaxed(0xFFFFFFFF, sfc->regbase + SFC_ICLR);
+	{
+		u32 fsr = readl_relaxed(sfc->regbase + SFC_FSR);
+		u32 sr = readl_relaxed(sfc->regbase + SFC_SR);
+
+		if (!(fsr & SFC_FSR_TX_IS_EMPTY) || !(fsr & SFC_FSR_RX_IS_EMPTY) ||
+		    (sr & SFC_SR_IS_BUSY)) {
+			dev_warn_ratelimited(sfc->dev,
+				"sfc not idle before op (fsr=%08x sr=%08x) — resetting\n",
+				fsr, sr);
+			rockchip_sfc_reset(sfc);
+		}
+	}
+
 	rockchip_sfc_adjust_op_work((struct spi_mem_op *)op);
 	rockchip_sfc_xfer_setup(sfc, mem, op, len);
 	if (len) {
