@@ -37,6 +37,7 @@
 		gpio3 = &gpio3;
 		gpio4 = &gpio4;
 		serial0 = &uart0;
+		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
 	};
 
@@ -164,6 +165,60 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "disabled";
+	};
+
+	gmac0: ethernet@ff4c8000 {
+		compatible = "rockchip,rk3506-gmac", "snps,dwmac-4.20a";
+		reg = <0xff4c8000 0x2000>;
+		interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "macirq", "eth_wake_irq";
+		rockchip,grf = <&grf>;
+		clocks = <&cru CLK_MAC0>, <&cru CLK_MAC0_PTP>,
+			 <&cru PCLK_MAC0>, <&cru ACLK_MAC0>;
+		clock-names = "stmmaceth", "ptp_ref",
+			      "pclk_mac", "aclk_mac";
+		resets = <&cru SRST_A_MAC0>;
+		reset-names = "stmmaceth";
+
+		assigned-clocks = <&cru CLK_MAC0_PTP>;
+		assigned-clock-rates = <62500000>;
+
+		snps,mixed-burst;
+		snps,tso;
+
+		snps,axi-config = <&gmac0_stmmac_axi_setup>;
+		snps,mtl-rx-config = <&gmac0_mtl_rx_setup>;
+		snps,mtl-tx-config = <&gmac0_mtl_tx_setup>;
+
+		phy-mode = "rmii";
+		status = "disabled";
+
+		mdio0: mdio {
+			compatible = "snps,dwmac-mdio";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+		};
+
+		gmac0_stmmac_axi_setup: stmmac-axi-config {
+			snps,wr_osr_lmt = <4>;
+			snps,rd_osr_lmt = <8>;
+			snps,blen = <0 0 0 0 16 8 4>;
+		};
+
+		gmac0_mtl_rx_setup: rx-queues-config {
+			snps,rx-queues-to-use = <1>;
+			queue0 {
+				status = "okay";
+			};
+		};
+
+		gmac0_mtl_tx_setup: tx-queues-config {
+			snps,tx-queues-to-use = <1>;
+			queue0 {
+				status = "okay";
+			};
+		};
 	};
 
 	gmac1: ethernet@ff4d0000 {
@@ -382,6 +437,37 @@
 				rockchip,pins =
 					/* uart0_rx */ <0 RK_PC7 1 &pcfg_pull_up>,
 					/* uart0_tx */ <0 RK_PC6 1 &pcfg_pull_up>;
+			};
+		};
+
+		eth_rmii0 {
+			/omit-if-no-ref/
+			eth_rmii0_miim_pins: eth-rmii0-miim-pins {
+				rockchip,pins =
+					/* eth_rmii0_mdc */ <2 RK_PB6 1 &pcfg_pull_none>,
+					/* eth_rmii0_mdio */ <2 RK_PB7 1 &pcfg_pull_none>;
+			};
+
+			/omit-if-no-ref/
+			eth_rmii0_rx_bus2_pins: eth-rmii0-rx-bus2-pins {
+				rockchip,pins =
+					/* eth_rmii0_rxd0 */ <2 RK_PB0 1 &pcfg_pull_none>,
+					/* eth_rmii0_rxd1 */ <2 RK_PB1 1 &pcfg_pull_none>,
+					/* eth_rmii0_rxdvcrs */ <2 RK_PC0 1 &pcfg_pull_none>;
+			};
+
+			/omit-if-no-ref/
+			eth_rmii0_tx_bus2_pins: eth-rmii0-tx-bus2-pins {
+				rockchip,pins =
+					/* eth_rmii0_txd0 */ <2 RK_PB3 1 &pcfg_pull_none>,
+					/* eth_rmii0_txd1 */ <2 RK_PB4 1 &pcfg_pull_none>,
+					/* eth_rmii0_txen */ <2 RK_PB5 1 &pcfg_pull_none>;
+			};
+
+			/omit-if-no-ref/
+			eth_rmii0_clk_pins: eth-rmii0-clk-pins {
+				rockchip,pins =
+					/* eth_rmii0_clk */ <2 RK_PB2 1 &pcfg_pull_none>;
 			};
 		};
 
