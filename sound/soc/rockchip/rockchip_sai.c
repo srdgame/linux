@@ -1513,6 +1513,7 @@ static const struct dev_pm_ops rockchip_sai_pm_ops = {
 
 static const struct of_device_id rockchip_sai_match[] = {
 	{ .compatible = "rockchip,rk3576-sai", },
+	{ .compatible = "rockchip,rk3506-sai", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, rockchip_sai_match);
