@@ -150,6 +150,20 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&rm_io13_i2c0_scl &rm_io14_i2c0_sda>;
+
+	es8388: es8388@11 {
+		compatible = "everest,es8388";
+		reg = <0x11>;
+		#sound-dai-cells = <0>;
+		clocks = <&cru MCLK_OUT_SAI1>;
+		clock-names = "mclk";
+		/* es8328 set_sysclk accepts only 11.2896/12.288/22.5792/24.576 MHz (or 0);
+		 * pin the sai1 mclk composite (MCLK_SAI1) to 12.288 MHz, else the codec
+		 * rejects the default mclk rate with -EINVAL and the card won't probe. */
+		assigned-clocks = <&cru MCLK_SAI1>;
+		assigned-clock-rates = <12288000>;
+		status = "okay";
+	};
 };
 
 &i2c1 {
@@ -178,6 +192,36 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&rm_io26_uart2_tx &rm_io27_uart2_rx>;
+};
+
+&sai1 {
+	status = "okay";
+};
+
+/*
+ * ES8388 audio: sai1 (I2S, stereo over sdo0) feeds the es8388 codec on i2c0.
+ * Sound card is mainline simple-audio-card (vendor used the private
+ * rockchip,multicodecs-card machine driver, rewritten here). mclk comes from
+ * the cru MCLK_OUT_SAI1 gate; the sai1_mclk pinctrl routes it to the codec.
+ * If mclk doesn't reach the codec (GRF to-IO gate not set), add the
+ * rockchip,clk-out driver (Phase E follow-up). Reference: vendor
+ * rk3502-evb1-v10.dtsi (sound card + es8388) + rk3506b-alientek.dtsi.
+ */
+/ {
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "rockchip-es8388";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+
+		simple-audio-card,cpu {
+			sound-dai = <&sai1>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&es8388>;
+		};
+	};
 };
 
 &pinctrl {

@@ -187,6 +187,49 @@
 		status = "disabled";
 	};
 
+	dmac0: dma-controller@ff000000 {
+		compatible = "arm,pl330", "arm,primecell";
+		reg = <0xff000000 0x4000>;
+		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_DMAC0>;
+		clock-names = "apb_pclk";
+		#dma-cells = <5>;
+		arm,pl330-periph-burst;
+	};
+
+	dmac1: dma-controller@ff008000 {
+		compatible = "arm,pl330", "arm,primecell";
+		reg = <0xff008000 0x4000>;
+		interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_DMAC1>;
+		clock-names = "apb_pclk";
+		#dma-cells = <5>;
+		arm,pl330-periph-burst;
+	};
+
+	sai1: sai@ff310000 {
+		compatible = "rockchip,rk3506-sai", "rockchip,sai-v1";
+		reg = <0xff310000 0x1000>;
+		interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru MCLK_SAI1>, <&cru HCLK_SAI1>;
+		clock-names = "mclk", "hclk";
+		/* 5-cell: <dmac chan mux_reg mux_val mux_reg mux_val> — the GRF
+		 * DMA request crossbar (programmed by the pl330 dmamux patch). */
+		dmas = <&dmac1 3  0xff2880a4 0x04000000 0x0 0x0>,
+		       <&dmac1 2  0xff2880a4 0x02000000 0x0 0x0>;
+		dma-names = "tx", "rx";
+		resets = <&cru SRST_M_SAI1>, <&cru SRST_H_SAI1>;
+		reset-names = "m", "h";
+		#sound-dai-cells = <0>;
+		pinctrl-names = "default";
+		/* sdo0 only (stereo) — sdo1/2/3 would clash with i2c0 on PB5/6/7. */
+		pinctrl-0 = <&sai1_lrck_pins &sai1_sclk_pins &sai1_sdi_pins
+			     &sai1_sdo0_pins &sai1_mclk_pins>;
+		status = "disabled";
+	};
+
 	mmc: mmc@ff480000 {
 		compatible = "rockchip,rk3506-dw-mshc", "rockchip,rk3288-dw-mshc";
 		reg = <0xff480000 0x4000>;
@@ -641,6 +684,29 @@
 			/omit-if-no-ref/
 			rm_io27_uart2_rx: rm-io27-uart2-rx {
 				rockchip,pins = <1 RK_PC2 19 &pcfg_pull_up>;
+			};
+		};
+
+		sai1 {
+			/omit-if-no-ref/
+			sai1_mclk_pins: sai1-mclk-pins {
+				rockchip,pins = <0 RK_PB0 1 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			sai1_sclk_pins: sai1-sclk-pins {
+				rockchip,pins = <0 RK_PB1 1 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			sai1_lrck_pins: sai1-lrck-pins {
+				rockchip,pins = <0 RK_PB2 1 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			sai1_sdi_pins: sai1-sdi-pins {
+				rockchip,pins = <0 RK_PB3 1 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			sai1_sdo0_pins: sai1-sdo0-pins {
+				rockchip,pins = <0 RK_PB4 1 &pcfg_pull_none>;
 			};
 		};
 	};
