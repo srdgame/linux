@@ -27,6 +27,23 @@
 		device_type = "memory";
 		reg = <0x0 0x20000000>;	/* 512 MiB; DRAM base 0x0 (CFG_SYS_SDRAM_BASE=0) */
 	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* OP-TEE / trust resident memory. The loader (rkbin TOS, ADDR=0x1000)
+		 * pins OP-TEE in low DRAM [0x1000, ~0x61000]. Without this carve-out the
+		 * kernel adds those physical pages to the free pool and hands them to
+		 * user space; the secure world then rejects the access as a precise
+		 * external abort (0x008) — reproducible under any sustained alloc churn
+		 * (dd to tmpfs, not just NAND I/O), the root cause of the write-stress
+		 * abort saga. Mirrors the vendor rk3506 DT's trust@0 reservation. */
+		trust@0 {
+			reg = <0x0 0x62000>;
+		};
+	};
 };
 
 &uart0 {
