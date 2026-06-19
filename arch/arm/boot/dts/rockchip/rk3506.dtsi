@@ -37,8 +37,12 @@
 		gpio3 = &gpio3;
 		gpio4 = &gpio4;
 		serial0 = &uart0;
+		serial2 = &uart2;
 		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
 	};
 
 	clocks {
@@ -136,6 +140,50 @@
 		num-cs = <2>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&spi0_csn0_pins &spi0_csn1_pins &spi0_clk_pins>;
+		status = "disabled";
+	};
+
+	i2c0: i2c@ff040000 {
+		compatible = "rockchip,rk3506-i2c", "rockchip,rk3399-i2c";
+		reg = <0xff040000 0x1000>;
+		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&cru CLK_I2C0>, <&cru PCLK_I2C0>;
+		clock-names = "i2c", "pclk";
+		status = "disabled";
+	};
+
+	i2c1: i2c@ff050000 {
+		compatible = "rockchip,rk3506-i2c", "rockchip,rk3399-i2c";
+		reg = <0xff050000 0x1000>;
+		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&cru CLK_I2C1>, <&cru PCLK_I2C1>;
+		clock-names = "i2c", "pclk";
+		status = "disabled";
+	};
+
+	i2c2: i2c@ff060000 {
+		compatible = "rockchip,rk3506-i2c", "rockchip,rk3399-i2c";
+		reg = <0xff060000 0x1000>;
+		interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&cru CLK_I2C2>, <&cru PCLK_I2C2>;
+		clock-names = "i2c", "pclk";
+		status = "disabled";
+	};
+
+	uart2: serial@ff0c0000 {
+		compatible = "rockchip,rk3506-uart", "snps,dw-apb-uart";
+		reg = <0xff0c0000 0x100>;
+		interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		clocks = <&cru SCLK_UART2>, <&cru PCLK_UART2>;
+		clock-names = "baudclk", "apb_pclk";
 		status = "disabled";
 	};
 
@@ -334,6 +382,7 @@
 		rockchip,grf = <&ioc_grf>;
 		rockchip,ioc1 = <&ioc1>;
 		rockchip,pmu = <&ioc_pmu>;
+		rockchip,rmio = <&grf_pmu>;	/* RMIO crossbar (rk3506 rm_io pads); see pinctrl RMIO patch */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -544,6 +593,54 @@
 			spi0_csn1_pins: spi0-csn1-pins {
 				rockchip,pins =
 					/* spi0_csn1 */ <0 RK_PB7 2 &pcfg_pull_none_drv_level_3>;
+			};
+		};
+
+		/* RMIO crossbar groups (mux values > iomux width route via grf_pmu).
+		 * Reduced from vendor rk3506-pinctrl-rmio.dtsi to the pads the AES
+		 * board actually wires: i2c0 on rm_io13/14, i2c1 on rm_io24/25,
+		 * i2c2 on rm_io4/5, uart2 on rm_io26/27. */
+		i2c0 {
+			/omit-if-no-ref/
+			rm_io13_i2c0_scl: rm-io13-i2c0-scl {
+				rockchip,pins = <0 RK_PB5 30 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			rm_io14_i2c0_sda: rm-io14-i2c0-sda {
+				rockchip,pins = <0 RK_PB6 31 &pcfg_pull_none>;
+			};
+		};
+
+		i2c1 {
+			/omit-if-no-ref/
+			rm_io24_i2c1_scl: rm-io24-i2c1-scl {
+				rockchip,pins = <1 RK_PB1 32 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			rm_io25_i2c1_sda: rm-io25-i2c1-sda {
+				rockchip,pins = <1 RK_PB2 33 &pcfg_pull_none>;
+			};
+		};
+
+		i2c2 {
+			/omit-if-no-ref/
+			rm_io4_i2c2_scl: rm-io4-i2c2-scl {
+				rockchip,pins = <0 RK_PA4 34 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			rm_io5_i2c2_sda: rm-io5-i2c2-sda {
+				rockchip,pins = <0 RK_PA5 35 &pcfg_pull_none>;
+			};
+		};
+
+		uart2 {
+			/omit-if-no-ref/
+			rm_io26_uart2_tx: rm-io26-uart2-tx {
+				rockchip,pins = <1 RK_PB3 18 &pcfg_pull_none>;
+			};
+			/omit-if-no-ref/
+			rm_io27_uart2_rx: rm-io27-uart2-rx {
+				rockchip,pins = <1 RK_PC2 19 &pcfg_pull_up>;
 			};
 		};
 	};

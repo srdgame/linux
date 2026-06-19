@@ -138,6 +138,48 @@
 	};
 };
 
+/*
+ * I2C0/1/2 + UART2 — reach the board via the RK3506 RMIO crossbar (rm_io pads).
+ * The crossbar mux itself is in the pinctrl driver (RMIO patch); the pad groups
+ * (rm_io13/14=i2c0, rm_io24/25=i1c1, rm_io4/5=i2c2, rm_io26/27=uart2) live in
+ * rk3506.dtsi. i2c2 carries the GT911 capacitive touch (goodix, @0x14). PIO
+ * only — no dmas (the vendor 5-cell DMA encoding doesn't bind mainline pl330).
+ * Reference: vendor rk3506b-alientek.dtsi + rk3506-evb1-v10.dtsi (i2c2 pads).
+ */
+&i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rm_io13_i2c0_scl &rm_io14_i2c0_sda>;
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rm_io24_i2c1_scl &rm_io25_i2c1_sda>;
+};
+
+&i2c2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rm_io4_i2c2_scl &rm_io5_i2c2_sda>;
+
+	touchscreen@14 {
+		compatible = "goodix,gt911";
+		reg = <0x14>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PA6 IRQ_TYPE_LEVEL_LOW>;
+		irq-gpios = <&gpio0 RK_PA6 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&gpio0 RK_PA7 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rm_io26_uart2_tx &rm_io27_uart2_rx>;
+};
+
 &pinctrl {
 	sdmmc {
 		/omit-if-no-ref/
