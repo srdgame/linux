@@ -251,7 +251,11 @@
 		clocks = <&cru SCLK_FSPI>, <&cru HCLK_FSPI>;
 		clock-names = "clk_sfc", "hclk_sfc";
 		rockchip,grf = <&grf_pmu>;	/* power-good gate (GRF_PMU+0x100 bit0); needed for reliable writes */
-		rockchip,sfc-no-dma;	/* DMA reads corrupt on this board; force PIO (notes/10) */
+		/* No rockchip,sfc-no-dma → use DMA (aligns vendor rk3506 fspi, which has no no-dma).
+		 * The earlier no-dma was a stale debug workaround (nand-ecc-debug-handoff, "rule out
+		 * DMA/cache"); "DMA reads corrupt" was never proven. NB: DMA does NOT fix the
+		 * rootfs PEB-3/4 -74 — that's loader marginal write (~8flips, read-nondeterministic),
+		 * handled by ubiprog (notes/27). DMA kept purely for vendor parity. */
 		rockchip,max-dll = <0x17F>;	/* RK3506 SFC is VER_5; cap DLL cell scan (vendor value) */
 		#address-cells = <1>;
 		#size-cells = <0>;
