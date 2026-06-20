@@ -234,6 +234,10 @@ struct rockchip_usb2phy_port {
  * @clk480m_hw: clock struct of phy output clk management.
  * @num_clks: number of phy input clocks.
  * @phy_reset: phy reset control.
+ * @phy_base: optional mmio base of the dedicated PHY register window; used for
+ *	analog tuning on SoCs where the USB2PHY has its own register file outside
+ *	the GRF (e.g. RK3506 @ 0xff2b0000). NULL when the node carries no MEM
+ *	resource (classic GRF-only PHYs).
  * @chg_state: states involved in USB charger detection.
  * @chg_type: USB charger types.
  * @dcd_retries: The retry count used to track Data contact
@@ -252,6 +256,7 @@ struct rockchip_usb2phy {
 	struct clk_hw	clk480m_hw;
 	int			num_clks;
 	struct reset_control	*phy_reset;
+	void __iomem		*phy_base;
 	enum usb_chg_state	chg_state;
 	enum power_supply_type	chg_type;
 	u8			dcd_retries;
@@ -1421,6 +1426,14 @@ static int rockchip_usb2phy_probe(struct platform_device *pdev)
 	if (IS_ERR(rphy->phy_reset))
 		return PTR_ERR(rphy->phy_reset);
 
+	/* Optional dedicated PHY register window (RK3506 carries its analog/tuning
+	 * regs in a separate 0x8000 mmio block at 0xff2b0000, not in the GRF).
+	 * Classic GRF-only PHYs have no MEM resource here; leave phy_base NULL,
+	 * which the per-SoC tuning hook treats as "nothing to do". */
+	rphy->phy_base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(rphy->phy_base))
+		rphy->phy_base = NULL;
+
 	ret = devm_clk_bulk_get_all(dev, &rphy->clks);
 	if (ret == -EPROBE_DEFER)
 		return dev_err_probe(&pdev->dev, -EPROBE_DEFER,
@@ -1512,6 +1525,32 @@ static int rk3128_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 	return regmap_write_bits(rphy->grf, 0x298,
 				BIT(2) << BIT_WRITEABLE_SHIFT | BIT(2),
 				BIT(2) << BIT_WRITEABLE_SHIFT | 0);
+}
+
+static int rk3506_usb2phy_tuning(struct rockchip_usb2phy *rphy)
+{
+	void __iomem *base = rphy->phy_base;
+
+	/* RK3506's PHY analog/tuning registers live in the dedicated PHY mmio
+	 * window (phy_base), not in the GRF. Ported from the vendor 6.1 driver's
+	 * rk3506_usb2phy_tuning() — its phy_clear_bits/phy_update_bits helpers are
+	 * open-coded here as read-modify-writes. No-op when the window is absent. */
+	if (!base)
+		return 0;
+
+	/* Turn off otg0/otg1 differential receiver in suspend mode */
+	writel(readl(base + 0x030) & ~BIT(2), base + 0x030);
+	writel(readl(base + 0x430) & ~BIT(2), base + 0x430);
+
+	/* Set otg0/otg1 HS eye height to 425mV (default 450mV) */
+	writel((readl(base + 0x030) & ~GENMASK(6, 4)) | (0x05 << 4), base + 0x030);
+	writel((readl(base + 0x430) & ~GENMASK(6, 4)) | (0x05 << 4), base + 0x430);
+
+	/* Select Tx fs/ls data as linestate from the TX driver for otg0/otg1 */
+	writel((readl(base + 0x094) & ~GENMASK(6, 3)) | (0x03 << 3), base + 0x094);
+	writel((readl(base + 0x494) & ~GENMASK(6, 3)) | (0x03 << 3), base + 0x494);
+
+	return 0;
 }
 
 static int rk3576_usb2phy_tuning(struct rockchip_usb2phy *rphy)
@@ -2045,6 +2084,73 @@ static const struct rockchip_usb2phy_cfg rk3568_phy_cfgs[] = {
 	{ /* sentinel */ }
 };
 
+static const struct rockchip_usb2phy_cfg rk3506_phy_cfgs[] = {
+	{
+		/* Matches the DT node's reg first cell (usb2-phy@ff2b0000). The same
+		 * reg is ioremap'd into phy_base for analog tuning above. Detection /
+		 * suspend registers (port_cfgs below) live in the GRF (rockchip,usbgrf),
+		 * like every other SoC this driver handles. */
+		.reg = 0xff2b0000,
+		.num_ports	= 2,
+		.phy_tuning	= rk3506_usb2phy_tuning,
+		.port_cfgs	= {
+			[USB2PHY_PORT_OTG] = {
+				.phy_sus	= { 0x0060, 8, 0, 0, 0x1d1 },
+				.bvalid_det_en	= { 0x0150, 2, 2, 0, 1 },
+				.bvalid_det_st	= { 0x0154, 2, 2, 0, 1 },
+				.bvalid_det_clr = { 0x0158, 2, 2, 0, 1 },
+				.idfall_det_en	= { 0x0150, 5, 5, 0, 1 },
+				.idfall_det_st	= { 0x0154, 5, 5, 0, 1 },
+				.idfall_det_clr = { 0x0158, 5, 5, 0, 1 },
+				.idrise_det_en	= { 0x0150, 4, 4, 0, 1 },
+				.idrise_det_st	= { 0x0154, 4, 4, 0, 1 },
+				.idrise_det_clr = { 0x0158, 4, 4, 0, 1 },
+				.ls_det_en	= { 0x0150, 0, 0, 0, 1 },
+				.ls_det_st	= { 0x0154, 0, 0, 0, 1 },
+				.ls_det_clr	= { 0x0158, 0, 0, 0, 1 },
+				.disfall_en	= { 0x0150, 7, 7, 0, 0 },
+				.disfall_st	= { 0x0154, 7, 7, 0, 1 },
+				.disfall_clr	= { 0x0158, 7, 7, 0, 1 },
+				.disrise_en	= { 0x0150, 6, 6, 0, 0 },
+				.disrise_st	= { 0x0154, 6, 6, 0, 1 },
+				.disrise_clr	= { 0x0158, 6, 6, 0, 1 },
+				.utmi_avalid	= { 0x0118, 1, 1, 0, 1 },
+				.utmi_bvalid	= { 0x0118, 0, 0, 0, 1 },
+				.utmi_id	= { 0x0118, 6, 6, 0, 1 },
+				.utmi_ls	= { 0x0118, 5, 4, 0, 1 },
+				.utmi_hstdet	= { 0x0118, 7, 7, 0, 1 },
+			},
+			[USB2PHY_PORT_HOST] = {
+				.phy_sus	= { 0x0070, 8, 0, 0, 0x1d1 },
+				.bvalid_det_en	= { 0x0170, 2, 2, 0, 1 },
+				.bvalid_det_st	= { 0x0174, 2, 2, 0, 1 },
+				.bvalid_det_clr = { 0x0178, 2, 2, 0, 1 },
+				.idfall_det_en	= { 0x0170, 5, 5, 0, 1 },
+				.idfall_det_st	= { 0x0174, 5, 5, 0, 1 },
+				.idfall_det_clr = { 0x0178, 5, 5, 0, 1 },
+				.idrise_det_en	= { 0x0170, 4, 4, 0, 1 },
+				.idrise_det_st	= { 0x0174, 4, 4, 0, 1 },
+				.idrise_det_clr = { 0x0178, 4, 4, 0, 1 },
+				.ls_det_en	= { 0x0170, 0, 0, 0, 1 },
+				.ls_det_st	= { 0x0174, 0, 0, 0, 1 },
+				.ls_det_clr	= { 0x0178, 0, 0, 0, 1 },
+				.disfall_en	= { 0x0170, 7, 7, 0, 0 },
+				.disfall_st	= { 0x0174, 7, 7, 0, 1 },
+				.disfall_clr	= { 0x0178, 7, 7, 0, 1 },
+				.disrise_en	= { 0x0170, 6, 6, 0, 0 },
+				.disrise_st	= { 0x0174, 6, 6, 0, 1 },
+				.disrise_clr	= { 0x0178, 6, 6, 0, 1 },
+				.utmi_avalid	= { 0x0118, 9, 9, 0, 1 },
+				.utmi_bvalid	= { 0x0118, 8, 8, 0, 1 },
+				.utmi_id	= { 0x0118, 14, 14, 0, 1 },
+				.utmi_ls	= { 0x0118, 13, 12, 0, 1 },
+				.utmi_hstdet	= { 0x0118, 15, 15, 0, 1 },
+			}
+		},
+	},
+	{ /* sentinel */ }
+};
+
 static const struct rockchip_usb2phy_cfg rk3576_phy_cfgs[] = {
 	{
 		.reg = 0x0,
@@ -2294,6 +2400,7 @@ static const struct of_device_id rockchip_usb2phy_dt_match[] = {
 	{ .compatible = "rockchip,rk3328-usb2phy", .data = &rk3328_phy_cfgs },
 	{ .compatible = "rockchip,rk3366-usb2phy", .data = &rk3366_phy_cfgs },
 	{ .compatible = "rockchip,rk3399-usb2phy", .data = &rk3399_phy_cfgs },
+	{ .compatible = "rockchip,rk3506-usb2phy", .data = &rk3506_phy_cfgs },
 	{ .compatible = "rockchip,rk3562-usb2phy", .data = &rk3562_phy_cfgs },
 	{ .compatible = "rockchip,rk3568-usb2phy", .data = &rk3568_phy_cfgs },
 	{ .compatible = "rockchip,rk3576-usb2phy", .data = &rk3576_phy_cfgs },
