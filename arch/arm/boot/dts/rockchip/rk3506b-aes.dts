@@ -211,6 +211,42 @@
 	pinctrl-0 = <&rm_io26_uart2_tx &rm_io27_uart2_rx>;
 };
 
+/*
+ * USB — both DWC2 controllers brought up as host (the board's USB-A carries the
+ * WiFi dongle and any USB peripheral; host enumeration is the bring-up goal).
+ * Mainline phy-rockchip-inno-usb2 drives the USB2PHY (analog tuning via its own
+ * 0xff2b0000 mmio window + bvalid/id/ls detection via the GRF); dwc2 binds on
+ * the snps,dwc2 fallback. Both ports enabled so whichever physical connector
+ * the dongle lands on enumerates on the first flash; OTG/gadget is follow-up.
+ *
+ * The phy PROVIDER driver binds to the usb2phy PARENT node (the one carrying the
+ * rk3506-usb2phy compatible); the otg-port/host-port children are the phys it
+ * publishes. So the parent must be status="okay" too — enabling only the child
+ * ports leaves the provider unprobed and dwc2 defers forever with "error
+ * getting phy" (caught on the first board test, boot-sdl-202606200858).
+ */
+&usb2phy {
+	status = "okay";
+};
+
+&u2phy_otg0 {
+	status = "okay";
+};
+
+&u2phy_otg1 {
+	status = "okay";
+};
+
+&usb20_otg0 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+&usb20_otg1 {
+	dr_mode = "host";
+	status = "okay";
+};
+
 &sai1 {
 	status = "okay";
 };
