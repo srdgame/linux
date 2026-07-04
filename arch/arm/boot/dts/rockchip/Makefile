@@ -41,3 +41,5 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rk3288-veyron-tiger.dtb \
 	rk3288-vyasa.dtb \
 	rk3506b-aes.dtb \
+	HZ-RK3506SP_MiniEVM_EMMC.dtb \
+	HZ-RK3506SP_MiniEVM_NAND.dtb
