@@ -821,6 +821,14 @@ choice
 		  their output to the standard serial port on the RealView
 		  PB1176 platform.
 
+	config DEBUG_RK3506_UART0
+		bool "Kernel low-level debugging messages via Rockchip RK3506 UART0"
+		depends on ARCH_ROCKCHIP
+		select DEBUG_UART_8250
+		help
+		  Say Y here to route low-level kernel debugging messages to
+		  the 32-bit DesignWare 8250 UART0 on Rockchip RK3506.
+
 	config DEBUG_RV1108_UART0
 		bool "Kernel low-level debugging messages via Rockchip RV1108 UART0"
 		depends on ARCH_ROCKCHIP
@@ -1561,6 +1569,7 @@ config DEBUG_UART_PHYS
 	default 0x10126000 if DEBUG_RK3X_UART1
 	default 0x101f1000 if DEBUG_VERSATILE
 	default 0x101fb000 if DEBUG_NOMADIK_UART
+	default 0xff0a0000 if DEBUG_RK3506_UART0
 	default 0x10210000 if DEBUG_RV1108_UART2
 	default 0x10220000 if DEBUG_RV1108_UART1
 	default 0x10230000 if DEBUG_RV1108_UART0
@@ -1677,6 +1686,7 @@ config DEBUG_UART_PHYS
 
 config DEBUG_UART_VIRT
 	hex "Virtual base address of debug UART"
+	default 0xf00a0000 if DEBUG_RK3506_UART0
 	default 0xc881f000 if DEBUG_RV1108_UART2
 	default 0xc8821000 if DEBUG_RV1108_UART1
 	default 0xc8912000 if DEBUG_RV1108_UART0
@@ -1795,7 +1805,7 @@ config DEBUG_UART_8250_WORD
 		DEBUG_KEYSTONE_UART1 || DEBUG_ALPINE_UART0 || \
 		DEBUG_DAVINCI_DA8XX_UART1 || DEBUG_DAVINCI_DA8XX_UART2 || \
 		DEBUG_BCM_IPROC_UART3 || DEBUG_BCM_KONA_UART || \
-		DEBUG_RK32_UART2
+		DEBUG_RK32_UART2 || DEBUG_RK3506_UART0
 
 config DEBUG_UART_8250_PALMCHIP
 	bool "8250 UART is Palmchip BK-310x"
@@ -1807,7 +1817,7 @@ config DEBUG_UART_8250_PALMCHIP
 
 config DEBUG_UNCOMPRESS
 	bool "Enable decompressor debugging via DEBUG_LL output"
-	depends on !ARCH_MULTIPLATFORM
+	depends on !ARCH_MULTIPLATFORM || DEBUG_RK3506_UART0
 	depends on !(ARCH_FOOTBRIDGE || ARCH_RPC || ARCH_SA1100)
 	depends on DEBUG_LL && !DEBUG_OMAP2PLUS_UART && \
 		     (!DEBUG_TEGRA_UART || !ZBOOT_ROM) && \
