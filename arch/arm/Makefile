@@ -154,6 +154,8 @@ CHECKFLAGS	+= -D__arm__
 textofs-y	:= 0x00008000
 # RTD1195 has Boot ROM at start of address space
 textofs-$(CONFIG_ARCH_REALTEK)  := 0x00108000
+# RK3506: leave the first 2 MiB to OP-TEE and its secure DRAM firewall.
+textofs-$(CONFIG_ARCH_ROCKCHIP) := 0x00208000
 # SA1111 DMA bug: we don't want the kernel to live in precious DMA-able memory
 ifeq ($(CONFIG_ARCH_SA1100),y)
 textofs-$(CONFIG_SA1111) := 0x00208000
